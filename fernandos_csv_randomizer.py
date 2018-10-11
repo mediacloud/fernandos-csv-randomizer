@@ -1,91 +1,128 @@
 import os
 import shutil
 import tempfile
-import tkinter as tk
-from tkinter import messagebox
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+# noinspection PyPackageRequirements
+import wx
 
 from randomizer import csv_random_rows
-
 
 APP_NAME = "FernandosCSVRandomizer"
 APP_TITLE = "Fernando's CSV randomizer"
 APP_VERSION = '1.0'
 
 
-class App(object):
+class MainFrame(wx.Frame):
     __DEFAULT_ROW_COUNT = 100
 
     __slots__ = [
         '__ui',
 
-        '__input_csv_file_entry_stringvar',
-        '__output_csv_file_entry_stringvar',
-        '__row_count_entry_stringvar',
+        '__input_csv_file_entry',
+        '__row_count_entry',
     ]
 
     def __init__(self):
-        self.__ui = tk.Tk()
-        self.__ui.resizable(width=False, height=False)
-        self.__ui.winfo_toplevel().title(APP_TITLE)
-        # self.__ui.geometry('{}x{}'.format(480, 240))
+        wx.Frame.__init__(self,
+                          parent=None,
+                          id=wx.ID_ANY,
+                          title=APP_TITLE,
+                          size=(480, 240),
+                          style=wx.DEFAULT_FRAME_STYLE)
 
-        input_csv_file_label = tk.Label(self.__ui, text="Choose input CSV file:")
-        input_csv_file_label.grid(row=0, column=0, sticky=tk.E)
+        self.__init_gui()
 
-        self.__input_csv_file_entry_stringvar = tk.StringVar()
-        input_csv_file_entry = tk.Entry(self.__ui,
-                                        textvariable=self.__input_csv_file_entry_stringvar,
-                                        state=tk.DISABLED)
-        input_csv_file_entry.grid(row=0, column=1, sticky=tk.W)
+        self.Center()
+        self.Show()
 
-        input_csv_file_button = tk.Button(self.__ui, text="...", command=self.__choose_input_file)
-        input_csv_file_button.grid(row=0, column=2, sticky=tk.W)
+    def __init_gui(self):
+        menu_bar = wx.MenuBar()
+        file_menu = wx.Menu()
+        quit_item = file_menu.Append(wx.ID_EXIT, 'Quit', 'Quit {}'.format(APP_TITLE))
+        menu_bar.Append(file_menu, '&File')
+        self.SetMenuBar(menu_bar)
 
-        row_count_label = tk.Label(self.__ui, text="Rows to output:")
-        row_count_label.grid(row=1, column=0, sticky=tk.E)
+        self.Bind(wx.EVT_MENU, lambda ev: self.Close(), quit_item)
 
-        self.__row_count_entry_stringvar = tk.StringVar()
-        self.__row_count_entry_stringvar.set(str(self.__DEFAULT_ROW_COUNT))
-        row_count_entry = tk.Entry(self.__ui, textvariable=self.__row_count_entry_stringvar)
-        row_count_entry.grid(row=1, column=1, columnspan=2, sticky=tk.W)
+        panel = wx.Panel(self)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        fgs = wx.FlexGridSizer(rows=3, cols=2, vgap=9, hgap=25)
 
-        randomize_button = tk.Button(self.__ui, text="Randomize CSV", command=self.__randomize_csv, bg='red')
-        randomize_button.grid(row=2, column=0, columnspan=3)
+        input_csv_file_label = wx.StaticText(panel, label="Choose input CSV file:")
+        self.__input_csv_file_entry = wx.FilePickerCtrl(panel, message="CSV input file:",
+                                                        wildcard="CSV files (*.csv)|*.csv")
+        row_count_label = wx.StaticText(panel, label="Rows to output:")
+        self.__row_count_entry = wx.TextCtrl(panel, value=str(self.__DEFAULT_ROW_COUNT))
+        randomize_button = wx.Button(panel, label="Randomize CSV")
+        randomize_button.Bind(wx.EVT_BUTTON, lambda ev: self.__randomize_csv())
 
-    def __choose_input_file(self):
-        self.__input_csv_file_entry_stringvar.set(askopenfilename(filetypes=[("CSV file", "*.csv")]))
+        fgs.AddMany([
+            (input_csv_file_label,), (self.__input_csv_file_entry, 1, wx.EXPAND),
+            (row_count_label,), (self.__row_count_entry, 1, wx.EXPAND),
+            (randomize_button,),
+        ])
 
-    def __choose_output_file(self):
-        self.__output_csv_file_entry_stringvar.set()
+        hbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
+        panel.SetSizer(hbox)
 
     def __randomize_csv(self):
         temp_csv_output_path = os.path.join(tempfile.mkdtemp(), 'output.csv')
 
-        input_path = self.__input_csv_file_entry_stringvar.get()
-        row_count = int(self.__row_count_entry_stringvar.get())
+        input_path = self.__input_csv_file_entry.GetPath()
+        row_count = int(self.__row_count_entry.GetValue())
 
         try:
             csv_random_rows(input_csv_path=input_path, output_csv_path=temp_csv_output_path, row_count=row_count)
-            output_path = asksaveasfilename(filetypes=[("CSV files", "*.csv")], defaultextension='.csv')
-
-            if output_path == input_path:
-                raise Exception("Can't read from and write to the same file.")
-
-            shutil.copyfile(temp_csv_output_path, output_path)
 
         except Exception as ex:
-            messagebox.showerror(
-                message="Unable to randomize {} rows from '{}':\n\n{}".format(row_count, input_path, str(ex))
+            wx.MessageBox(
+                message="Unable to randomize {} rows from '{}':\n\n{}".format(row_count, input_path, str(ex)),
+                caption='Error',
+                style=wx.OK | wx.ICON_ERROR
             )
 
         else:
-            messagebox.showinfo(message="Randomized {} rows into '{}'.".format(row_count, output_path))
 
-    def ui_loop(self) -> None:
-        self.__ui.mainloop()
+            input_path_dir = os.path.dirname(input_path)
+            input_path_filename_ext = os.path.splitext(os.path.basename(input_path))
+            output_filename = '{}-random{}{}'.format(input_path_filename_ext[0], row_count, input_path_filename_ext[1])
+
+            dlg = wx.FileDialog(self,
+                                message="Choose output CSV file:",
+                                defaultDir=input_path_dir,
+                                defaultFile=output_filename,
+                                wildcard="CSV files (*.csv)|*.csv",
+                                style=wx.FD_SAVE | wx.FLP_USE_TEXTCTRL | wx.FLP_OVERWRITE_PROMPT)
+
+            if dlg.ShowModal() == wx.ID_OK:
+
+                output_path = dlg.GetPath()
+
+                try:
+
+                    if output_path == input_path:
+                        raise Exception("Can't read from and write to the same file.")
+
+                    shutil.copyfile(temp_csv_output_path, output_path)
+
+                except Exception as ex:
+                    wx.MessageBox(
+                        message="Unable to save randomized rows:\n\n{}".format(str(ex)),
+                        caption='Error',
+                        style=wx.OK | wx.ICON_ERROR
+                    )
+
+                else:
+                    wx.MessageBox(
+                        message="Randomized {} rows into '{}'.".format(row_count, output_path),
+                        caption='Information',
+                        style=wx.OK | wx.ICON_INFORMATION
+                    )
 
 
 if __name__ == "__main__":
-    app = App()
-    app.ui_loop()
+    app = wx.PySimpleApp(0)
+    wx.InitAllImageHandlers()
+    app_frame = MainFrame()
+    app.SetTopWindow(app_frame)
+    app_frame.Show()
+    app.MainLoop()

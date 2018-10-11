@@ -9,10 +9,14 @@ from setuptools import setup
 
 ENTRY_POINT = 'fernandos_csv_randomizer.py'
 
+general_options = dict(
+    app=[ENTRY_POINT],
+    install_requires=['wxPython'],
+)
+
 if sys.platform == 'darwin':
     extra_options = dict(
         setup_requires=['py2app'],
-        app=[ENTRY_POINT],
         options=dict(
             py2app={
                 # Cross-platform applications generally expect sys.argv to be used for opening files
@@ -33,7 +37,6 @@ if sys.platform == 'darwin':
 elif sys.platform == 'win32':
     extra_options = dict(
         setup_requires=['py2exe'],
-        app=[ENTRY_POINT],
     )
 else:
     extra_options = dict(
@@ -43,5 +46,6 @@ else:
 
 setup(
     name=APP_NAME,
+    **general_options,
     **extra_options
 )

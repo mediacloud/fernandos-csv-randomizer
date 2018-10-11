@@ -1,13 +1,13 @@
 import sys
 
 import ez_setup
-from app import APP_TITLE, APP_NAME, APP_VERSION
+from fernandos_csv_randomizer import APP_TITLE, APP_NAME, APP_VERSION
 
 ez_setup.use_setuptools()
 
 from setuptools import setup
 
-ENTRY_POINT = 'app.py'
+ENTRY_POINT = 'fernandos_csv_randomizer.py'
 
 if sys.platform == 'darwin':
     extra_options = dict(
@@ -37,8 +37,7 @@ elif sys.platform == 'win32':
     )
 else:
     extra_options = dict(
-        # Normally unix-like platforms will use "setup.py install"
-        # and install the main script as such
+        # Normally unix-like platforms will use "setup.py install" and install the main script as such
         scripts=[ENTRY_POINT],
     )
 

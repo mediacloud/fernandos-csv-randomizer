@@ -8,7 +8,7 @@ from randomizer import csv_random_rows
 
 APP_NAME = "FernandosCSVRandomizer"
 APP_TITLE = "Fernando's CSV randomizer"
-APP_VERSION = '1.1'
+APP_VERSION = '1.1.1'
 
 
 class MainFrame(wx.Frame):

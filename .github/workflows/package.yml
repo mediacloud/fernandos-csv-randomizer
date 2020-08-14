@@ -1,0 +1,77 @@
+name: Create package
+
+on: [push]
+
+jobs:
+
+  create_pkg:
+
+    name: Create package
+    runs-on: macos-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip')"
+
+    steps:
+
+      - name: Check out repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install dependencies
+        run: |
+          pip3 install wxPython
+          pip3 install chardet
+          pip3 install py2app
+
+      - name: Set default package version
+        run: |
+          export PKG_VERSION=$(git rev-parse --short HEAD)
+          echo "Default package version: ${PKG_VERSION}"
+          echo "::set-env name=PKG_VERSION::${PKG_VERSION}"
+
+      - name: Set tag package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          export PKG_VERSION=$(git describe --tags)
+          echo "Tag package version: ${PKG_VERSION}"
+          echo "::set-env name=PKG_VERSION::${PKG_VERSION}"
+
+      - name: Create .app file
+        run: |
+          if [[ -z "${PKG_VERSION}" ]]; then echo "Unable to determine tag / HEAD commit hash."; exit 1; fi
+          echo "Package version: ${PKG_VERSION}"
+          ./build-release.sh
+          cd dist/
+          export OUTPUT_ZIP_FILENAME="FernandosCSVRandomizer-${PKG_VERSION}.zip"
+          zip -r $OUTPUT_ZIP_FILENAME FernandosCSVRandomizer.app
+          if [ ! -f "${OUTPUT_ZIP_FILENAME}" ]; then echo "File ${OUTPUT_ZIP_FILENAME} does not exist."; exit 1; fi
+          echo "::set-env name=OUTPUT_ZIP_FILENAME::${OUTPUT_ZIP_FILENAME}"
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        id: created_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.PKG_VERSION }}
+          release_name: ${{ env.PKG_VERSION }}
+          draft: true
+          prerelease: false
+
+      - name: Add .zip file to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.created_release.outputs.upload_url }}
+          asset_path: ./${{ env.OUTPUT_ZIP_FILENAME }}
+          asset_name: ${{ env.OUTPUT_ZIP_FILENAME }}
+          asset_content_type: application/zip

@@ -11,7 +11,7 @@ ENTRY_POINT = 'fernandos_csv_randomizer.py'
 
 general_options = dict(
     app=[ENTRY_POINT],
-    install_requires=['wxPython'],
+    install_requires=['chardet', 'wxPython'],
 )
 
 if sys.platform == 'darwin':

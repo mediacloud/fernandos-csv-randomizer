@@ -1,5 +1,17 @@
+import chardet
 import csv
 import random
+
+
+def _predict_encoding(file_path: str, n_lines: int = 20) -> str:
+    """Predict a file's encoding using chardet."""
+
+    # Open the file as binary data
+    with open(file_path, 'rb') as f:
+        # Join binary lines for specified number of lines
+        raw_data = b''.join([f.readline() for _ in range(n_lines)])
+
+    return chardet.detect(raw_data)['encoding']
 
 
 def csv_random_rows(input_csv_path: str, output_csv_path: str, row_count: int = 100):
@@ -15,14 +27,29 @@ def csv_random_rows(input_csv_path: str, output_csv_path: str, row_count: int = 
     if input_csv_path == output_csv_path:
         raise Exception("Can't read from and write to the same file.")
 
-    with open(input_csv_path, mode='r', encoding='utf-8') as input_file:
+    input_encoding = _predict_encoding(file_path=input_csv_path)
+    if input_encoding.lower() == 'ascii':
+        input_encoding = 'utf-8'
 
-        csv_sample = input_file.read(1024)
+    with open(input_csv_path, mode='r', encoding=input_encoding) as input_file:
+
+        csv_sample = input_file.read(4096)
         input_file.seek(0)
 
         sniffer = csv.Sniffer()
-        dialect = sniffer.sniff(csv_sample)
-        has_header = sniffer.has_header(csv_sample)
+
+        try:
+            dialect = sniffer.sniff(csv_sample)
+        except Exception as ex:
+            raise Exception("Unable to determine CSV dialect: {}".format(str(ex)))
+
+        if not dialect.escapechar:
+            dialect.escapechar = '\\'
+
+        try:
+            has_header = sniffer.has_header(csv_sample)
+        except Exception as ex:
+            raise Exception("Unable to determine whether CSV file has header: {}".format(str(ex)))
 
         csv_input = csv.reader(input_file, dialect=dialect)
 
